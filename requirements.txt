@@ -1,0 +1,6 @@
+fastapi 
+uvicorn
+requests
+dotenv
+pydantic
+git+ssh://git@github.com/voguebook/tbpy_cloud.git#tbpy_cloud
