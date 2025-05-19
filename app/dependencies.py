@@ -29,6 +29,9 @@ class User(BaseModel):
     gender: Optional[str] = None
 
 
+#
+
+
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Security(security),
 ) -> User:
