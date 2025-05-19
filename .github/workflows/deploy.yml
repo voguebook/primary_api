@@ -1,0 +1,41 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Log in to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build and Push image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "${{ secrets.ENV_FILE }}" > ~/trendbook.env
+
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+            docker stop trendbook-api || true
+            docker rm trendbook-api || true
+
+            docker run -d \
+              --name trendbook-api \
+              --env-file ~/trendbook.env \
+              -p 80:3000 \
+              ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
