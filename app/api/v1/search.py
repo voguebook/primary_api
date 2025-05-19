@@ -8,11 +8,11 @@ from cachetools import TTLCache
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from api.v1.like import mark_liked_products
-from dependencies import User, get_current_user
-from services.product_search import vectorSearch
+from app.api.v1.like import mark_liked_products
+from app.dependencies import User, get_current_user
+from app.services.product_search import vectorSearch
 
-from services.cloud import supabase
+from app.services.cloud import supabase
 
 from currency_converter import CurrencyConverter
 import logging
@@ -73,12 +73,16 @@ def _group_products(
             if feed_name not in feed_listings:
                 feed_listings[feed_name] = {
                     **lst["feeds"],
-                    "price_original": converted_price,  # for display
-                    "price": converted_price,  # effective selling price
+                    "id": lst["id"],
+                    "shop_id": lst["feeds"]["id"],
+                    "price_original": converted_price,
+                    "price": converted_price,
                     "compare_price": (
                         round(
                             convertCurrency(
-                                lst["compare_price"], lst["currency"], currency
+                                lst["compare_price"],
+                                lst["currency"],
+                                currency,
                             ),
                             2,
                         )
@@ -130,7 +134,6 @@ def search_detection(
     cached = search_detection_cache.get(cache_key)
     if cached:
         logger.info(f"Cache hit for detection_id={detection_id}, gender={gender}")
-
         return cached
 
     # 1) fetch detection
@@ -166,7 +169,7 @@ def search_detection(
                 """
                 id, brand,
                 product_images(url, s3_key, sort),
-                v_product_listings:shop_listings!inner(*, variant(size), feeds(name, domain, bf_logo))
+                v_product_listings:shop_listings!inner(*, variant(size), feeds(id, name, domain, bf_logo))
                 """
             )
             .in_("id", product_ids)

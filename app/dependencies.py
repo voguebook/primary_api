@@ -2,7 +2,7 @@ from typing import Optional
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
-from services.cloud import supabase  # Assuming this is your Supabase client
+from app.services.cloud import supabase  # Assuming this is your Supabase client
 from supabase import Client, create_client
 import os
 from dotenv import load_dotenv

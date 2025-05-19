@@ -1,18 +1,20 @@
 import hashlib
 import json
 from typing import Any, Dict, List
-
+from currency_converter import CurrencyConverter
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 
-from dependencies import User, get_current_user
-from services.product_search import vectorSearch
-from services.cloud import supabase
-from currency_converter import CurrencyConverter
+from app.dependencies import User, get_current_user
+from app.services.product_search import vectorSearch
+from app.services.cloud import supabase
+
 import logging
 
-logger = logging.getLogger(__name__)
 convertCurrency = CurrencyConverter().convert
+
+logger = logging.getLogger(__name__)
+
 
 router = APIRouter()
 
@@ -146,7 +148,7 @@ async def get_liked_products(
                 products!inner(
                     id, brand,
                     product_images(url, s3_key, sort),
-                    v_product_listings:shop_listings!inner(*, variant(size), feeds(name, domain, bf_logo))
+                    v_product_listings:shop_listings!inner(*, variant(size), feeds(id, name, domain, bf_logo))
                 )
                 """
             )
@@ -197,6 +199,8 @@ async def get_liked_products(
                         if feed_name not in feed_listings:
                             feed_listings[feed_name] = {
                                 **lst["feeds"],
+                                "id": lst["id"],
+                                "shop_id": lst["feeds"]["id"],
                                 "price_original": converted_price,
                                 "price": converted_price,
                                 "compare_price": (
@@ -237,7 +241,7 @@ async def get_liked_products(
 
         # Calculate total pages
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
-
+        print(liked_products)
         return {
             "success": True,
             "products": liked_products,

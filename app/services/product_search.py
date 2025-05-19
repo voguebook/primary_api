@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from services.reranking import re_ranking
+from app.services.reranking import re_ranking
 from .cloud import postgresql
 
 from qdrant_client import QdrantClient
@@ -46,7 +46,7 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
     hits = qdrant.search(
         collection_name="tbnetv1_vectors",
         query_vector=vector,
-        limit=200,  # More candidates = better re-ranking
+        limit=200,
         query_filter=search_filter,
         with_vectors=True,
         with_payload=True,

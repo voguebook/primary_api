@@ -1,13 +1,14 @@
 import json
 import time
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from typing import Dict, Any, List, Optional
 
 from fastapi.responses import JSONResponse
 import pycountry
-from dependencies import User, get_current_user
-from services.cloud import supabase, postgresql
+from app.dependencies import User, get_current_user
+from app.services.cloud import supabase, postgresql
 from babel.numbers import get_currency_symbol
+
 
 router = APIRouter()
 
@@ -43,7 +44,6 @@ def get_listers_filters(country) -> List[Dict[str, Any]]:
 def get_brand_filters() -> List[Dict[str, Any]]:
     brands = postgresql.direct_query("SELECT DISTINCT(brand) FROM tb2.products;")
     brand_list = [row["brand"] for row in brands if row["brand"]]
-
     return [
         {
             "key": "brand",
@@ -55,7 +55,6 @@ def get_brand_filters() -> List[Dict[str, Any]]:
 
 
 def get_gender_filters(gender: Optional[str]) -> List[Dict[str, Any]]:
-
     return [
         {
             "key": "gender",
@@ -73,7 +72,6 @@ def get_gender_filters(gender: Optional[str]) -> List[Dict[str, Any]]:
 
 
 def get_price_filter(currency: Optional[str] = "DKK") -> Dict[str, Any]:
-
     return {
         "key": "price",
         "label": f"Price ({currency})",
@@ -208,3 +206,52 @@ def get_onboarding_options() -> Dict[str, List[Dict[str, Any]]]:
         {"country": countries, "gender": genders, "currency": currencies},
         media_type="application/json; charset=utf-8",
     )
+
+
+@router.get("/searches")
+def fetch_user_searches(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    start_time = time.time()
+
+    offset = (page - 1) * page_size
+
+    query = (
+        supabase.table("searches")
+        .select("id, s3_key, created_at", count="exact")
+        .eq("user", user.id)
+        .order("created_at", desc=True)
+        .range(offset, offset + page_size - 1)
+    )
+
+    result = query.execute()
+    total_count = result.count or 0
+    searches = result.data or []
+
+    total_pages = (total_count + page_size - 1) // page_size
+
+    pagination = {
+        "page": page,
+        "page_size": page_size,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "has_next": page < total_pages,
+        "has_previous": page > 1,
+    }
+
+    response = {
+        "searches": [
+            {
+                "id": s["id"],
+                "image": "https://trendbook.s3.eu-west-1.amazonaws.com/" + s["s3_key"],
+                "created_at": s["created_at"],
+            }
+            for s in searches
+        ],
+        "pagination": pagination,
+    }
+
+    print(f"Fetched {len(searches)} searches in {time.time() - start_time:.4f} seconds")
+    return response

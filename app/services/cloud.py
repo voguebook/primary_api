@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
-from tbpy_cloud import supabaseClient, S3Bucket, PostgreSQL
 
+from app.tbpy_cloud import supabaseClient, bucket, S3Bucket, PostgreSQL
 
 load_dotenv()
 
@@ -13,7 +13,6 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 supabase = supabaseClient(url=SUPABASE_URL, key=SUPABASE_KEY)
-
 
 postgresql = PostgreSQL(database_url=os.getenv("DATABASE_URL"))
 
