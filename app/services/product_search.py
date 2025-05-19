@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from app.services.reranking import re_ranking
+from app.services.reranking import re_rank_result, re_ranking
 from .cloud import postgresql
 
 from qdrant_client import QdrantClient
@@ -46,7 +46,7 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
     hits = qdrant.search(
         collection_name="tbnetv1_vectors",
         query_vector=vector,
-        limit=200,
+        limit=150,
         query_filter=search_filter,
         with_vectors=True,
         with_payload=True,
@@ -54,23 +54,10 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
 
     if not hits:
         return []
-
-    gallery_vecs = np.array([h.vector for h in hits], dtype=np.float32)
-    query_vec = np.asarray(vector, dtype=np.float32).reshape(1, -1)
-
-    q_g = cosine_distances(query_vec, gallery_vecs)
-    q_q = np.zeros((1, 1), dtype=np.float32)
-    g_g = cosine_distances(gallery_vecs, gallery_vecs)
-
-    ng = len(hits)
-    k1_eff = min(20, ng - 1)
-    k2_eff = min(6, k1_eff)
-
-    reranked = re_ranking(q_g, q_q, g_g, k1=k1_eff, k2=k2_eff, lambda_value=0.3)
-    order = np.argsort(reranked[0])
-
+    reranked = re_rank_result(vector, hits)
     results = []
-    for i, idx in enumerate(order):
+
+    for i, idx in enumerate(reranked):
         h = hits[idx]
         results.append(
             {
@@ -83,25 +70,4 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
             }
         )
 
-    return results
-
-
-def vectorSearchDepreciated(vector: list, label: str) -> list:
-    """
-    Perform a vector similarity search on the TBNetV1 column.
-    """
-    query = """
-    SELECT image_id as id, product_id AS product_id,
-        tbnetv1 <=> %s::vector AS distance
-    FROM tb2.labeled_images
-    WHERE tbnetv1 IS NOT NULL
-    AND label = %s
-    ORDER BY distance
-    LIMIT 50;
-    """
-
-    # Ensure this is a list of floats
-
-    print(label)
-    results = postgresql.direct_query(query, params=[vector, label])
     return results
