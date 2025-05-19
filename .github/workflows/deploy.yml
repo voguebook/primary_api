@@ -18,8 +18,9 @@ jobs:
 
       - name: Build and Push image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest .
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
 
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
@@ -28,14 +29,17 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+
             echo "${{ secrets.ENV_FILE }}" > ~/trendbook.env
 
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+            docker pull $IMAGE_NAME
+
             docker stop trendbook-api || true
             docker rm trendbook-api || true
 
             docker run -d \
               --name trendbook-api \
               --env-file ~/trendbook.env \
-              -p 80:3000 \
-              ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+              -p 80:8000 \
+              $IMAGE_NAME
