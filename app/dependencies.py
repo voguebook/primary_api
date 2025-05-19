@@ -36,6 +36,7 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="No credentials provided")
 
     token = credentials.credentials
+    print(f"Token: {token}")
 
     # Try token cache
 

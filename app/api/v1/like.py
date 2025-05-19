@@ -6,15 +6,16 @@ from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.dependencies import User, get_current_user
+from app.services.get_products import process_products
 from app.services.product_search import vectorSearch
 from app.services.cloud import supabase
 
 import logging
 
-convertCurrency = CurrencyConverter().convert
 
 logger = logging.getLogger(__name__)
 
+convertCurrency = CurrencyConverter().convert
 
 router = APIRouter()
 
@@ -114,7 +115,6 @@ async def get_liked_products(
     Args:
         page: Page number (starts at 1)
         limit: Number of items per page
-        currency: Currency to convert prices to (default: DKK)
         current_user: Current authenticated user
 
     Returns:
@@ -158,90 +158,26 @@ async def get_liked_products(
             .execute()
         )
 
-        # Format products in the same way as search API
-        liked_products = []
+        # Extract the 'products' data from each item before processing
+        product_data = []
         if join_query.data:
-            for idx, item in enumerate(join_query.data):
+            for item in join_query.data:
                 if item.get("products"):
-                    p = item["products"]
+                    product_data.append(item["products"])
 
-                    # Process images
-                    imgs = sorted(
-                        p.get("product_images") or [], key=lambda i: i.get("sort", 0)
-                    )
-                    img_urls = [
-                        f"https://trendbook.s3.eu-west-1.amazonaws.com/{img['s3_key']}"
-                        for img in imgs
-                        if img.get("s3_key")
-                    ]
+        # Format products in the same way as search API
+        liked_products = process_products(
+            product_data,
+            currency=current_user.currency,
+        )
 
-                    # Process listings
-                    listings = p.get("v_product_listings", [])
-                    feed_listings = {}
-                    cheapest_price = None
-
-                    for lst in listings:
-                        if not lst.get("in_stock") or lst.get("price") is None:
-                            continue
-
-                        feed_name = lst["feeds"]["name"]
-
-                        converted_price = round(
-                            convertCurrency(
-                                lst["price"], lst["currency"], current_user.currency
-                            ),
-                            2,
-                        )
-
-                        if cheapest_price is None or converted_price < cheapest_price:
-                            cheapest_price = converted_price
-
-                        if feed_name not in feed_listings:
-                            feed_listings[feed_name] = {
-                                **lst["feeds"],
-                                "id": lst["id"],
-                                "shop_id": lst["feeds"]["id"],
-                                "price_original": converted_price,
-                                "price": converted_price,
-                                "compare_price": (
-                                    round(
-                                        convertCurrency(
-                                            lst["compare_price"],
-                                            lst["currency"],
-                                            current_user.currency,
-                                        ),
-                                        2,
-                                    )
-                                    if lst["compare_price"] is not None
-                                    else None
-                                ),
-                                "original_currency": lst["currency"],
-                                "currency": current_user.currency,
-                                "link": lst["affiliate_url"],
-                                "sizes": [],
-                            }
-
-                        # Add the size if available
-                        size = lst.get("variant", {}).get("size")
-                        if size:
-                            feed_listings[feed_name]["sizes"].append(size)
-
-                    liked_products.append(
-                        {
-                            "id": p["id"],
-                            "brand": p["brand"],
-                            "from_price": cheapest_price,
-                            "currency": current_user.currency,
-                            "listings": list(feed_listings.values()),
-                            "images": img_urls,
-                            "liked": True,
-                            "index": idx,
-                        }
-                    )
+        # Mark all products as liked
+        for product in liked_products:
+            product["liked"] = True
 
         # Calculate total pages
         total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
-        print(liked_products)
+
         return {
             "success": True,
             "products": liked_products,

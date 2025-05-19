@@ -2,6 +2,7 @@ import json
 from typing import Optional
 
 import numpy as np
+from qdrant_client.http import models
 
 from app.services.reranking import re_rank_result, re_ranking
 from .cloud import postgresql
@@ -26,12 +27,9 @@ qdrant = QdrantClient(
 
 
 def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
-
     gender_match = ["unisex"]
     if gender is not None and gender != "all":
         gender_match.append(gender)
-
-    print(gender_match)
 
     search_filter = Filter(
         must=[
@@ -55,19 +53,5 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
     if not hits:
         return []
     reranked = re_rank_result(vector, hits)
-    results = []
 
-    for i, idx in enumerate(reranked):
-        h = hits[idx]
-        results.append(
-            {
-                "rank": i + 1,
-                "id": h.id,
-                "product_id": h.payload.get("product_id"),
-                "image_id": h.payload.get("image_id"),
-                "distance": float(reranked[0, idx]),
-                "ann_score": h.score,
-            }
-        )
-
-    return results
+    return reranked
