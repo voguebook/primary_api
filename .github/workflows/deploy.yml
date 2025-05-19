@@ -1,0 +1,35 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build and push Docker image
+        run: |
+          docker build -t your-image .
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker tag your-image your-dockerhub-username/your-image:latest
+          docker push your-dockerhub-username/your-image:latest
+
+      - name: SSH into EC2 and deploy container
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull your-dockerhub-username/your-image:latest
+            docker stop trendbook-api || true
+            docker rm trendbook-api || true
+            docker run -d --name trendbook-api -p 80:3000 \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              your-dockerhub-username/your-image:latest
