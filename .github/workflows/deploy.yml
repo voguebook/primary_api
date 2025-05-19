@@ -13,23 +13,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Build and push Docker image
+      - name: Build and push Docker image to Docker Hub
         run: |
-          docker build -t your-image .
+          docker build -t trendbook-api .
           echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker tag your-image your-dockerhub-username/your-image:latest
-          docker push your-dockerhub-username/your-image:latest
+          docker tag trendbook-api ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
 
-      - name: SSH into EC2 and deploy container
+      - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            docker pull your-dockerhub-username/your-image:latest
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
             docker stop trendbook-api || true
             docker rm trendbook-api || true
-            docker run -d --name trendbook-api -p 80:3000 \
-              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
-              your-dockerhub-username/your-image:latest
+            docker run -d --name trendbook-api \
+              -p 80:3000 \
+              -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+              ${{ secrets.DOCKERHUB_USERNAME }}/trendbook-api:latest
