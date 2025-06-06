@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from typing import Any, Dict
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends
@@ -23,6 +24,9 @@ search_detection_cache = TTLCache(maxsize=1000, ttl=300)  # 5 min expiry
 def _cache_key(detection_id: str, gender: str) -> str:
     base = {"detection_id": detection_id, "gender": gender}
     return hashlib.sha256(json.dumps(base, sort_keys=True).encode()).hexdigest()
+
+
+db_prefix = os.getenv("DB_PREFIX", "")
 
 
 @router.get("/search-detection")
@@ -65,12 +69,12 @@ def search_detection(
     # 3) product fetch
     prod = (
         (
-            supabase.table("products")
+            supabase.table(f"{db_prefix}products")
             .select(
-                """
+                f"""
                 id, brand,
-                product_images(url, s3_key, sort),
-                v_product_listings:shop_listings!inner(*, variant(size), feeds(id, name, domain, bf_logo))
+                {db_prefix}product_images(url, s3_key, sort),
+                v_product_listings:{db_prefix}shop_listings!inner(*, variant(size), feeds(id, name, domain, bf_logo))
                 """
             )
             .in_("id", product_ids)

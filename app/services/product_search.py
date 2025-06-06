@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Optional
 
 import numpy as np
@@ -25,6 +26,10 @@ qdrant = QdrantClient(
     timeout=10,
 )
 
+qdrant_collection = os.getenv("QDRANT_COLLECTION", "tbnetv1_vectors")
+gender_key = os.getenv("QDRANT_GENDER_KEY", "generalized_gender")
+query_limit = int(os.getenv("QDRANT_QUERY_LIMIT", 150))
+
 
 def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
     gender_match = ["unisex"]
@@ -35,16 +40,16 @@ def vectorSearch(vector: list[float], label: str, gender: str) -> list[dict]:
         must=[
             FieldCondition(key="label", match=MatchValue(value=label)),
             FieldCondition(
-                key="generalized_gender",
+                key=gender_key,
                 match=MatchAny(any=gender_match),
             ),
         ]
     )
 
     hits = qdrant.search(
-        collection_name="tbnetv1_vectors",
+        collection_name=qdrant_collection,
         query_vector=vector,
-        limit=150,
+        limit=query_limit,
         query_filter=search_filter,
         with_vectors=True,
         with_payload=True,

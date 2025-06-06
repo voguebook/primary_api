@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 
@@ -32,6 +33,8 @@ def process_products(
     """
     products: List[Dict[str, Any]] = []
 
+    db_prefix = os.getenv("DB_PREFIX", "")
+
     # order by similarity
     if product_conf:
         raw_products.sort(
@@ -40,7 +43,9 @@ def process_products(
         )
 
     for i, p in enumerate(raw_products):
-        imgs = sorted(p.get("product_images") or [], key=lambda i: i.get("sort", 0))
+        imgs = sorted(
+            p.get(f"{db_prefix}product_images") or [], key=lambda i: i.get("sort", 0)
+        )
         img_urls = [
             f"https://trendbook.s3.eu-west-1.amazonaws.com/{img['s3_key']}"
             for img in imgs
@@ -53,12 +58,18 @@ def process_products(
 
         # Track the cheapest *in-stock* price while we build the feeds
         cheapest_price: float | None = None
+        has_in_stock_listing = (
+            False  # Flag to track if product has any in-stock listings
+        )
 
         for lst in listings:
             if not lst.get("in_stock") or lst.get("price") is None:
                 # skip out-of-stock or price-less variants everywhere
                 continue
 
+            has_in_stock_listing = (
+                True  # Set flag when we find at least one in-stock listing
+            )
             feed_name = lst["feeds"]["name"]
 
             converted_price = round(
@@ -98,6 +109,10 @@ def process_products(
             size = lst.get("variant", {}).get("size")
             if size:
                 feed_listings[feed_name]["sizes"].append(size)
+
+        # Skip adding this product if it has no in-stock listings
+        if not has_in_stock_listing:
+            continue
 
         conf = None
         if product_conf:
