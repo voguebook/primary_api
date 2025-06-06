@@ -20,4 +20,4 @@ ENV PYTHONPATH=/app
 EXPOSE 8000
 
 # Start the FastAPI app (assuming app/main.py with `app = FastAPI()`)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8008", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

@@ -13,6 +13,18 @@ app = FastAPI(default_response_class=JSONResponse)
 is_running = False
 
 
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint to verify the API is running.
+    Returns a simple status response.
+    """
+    return {
+        "status": "ok",
+        "service": "primary_api",
+    }
+
+
 app.include_router(v1_router, prefix="/api/v1")  # For editing feeds
 
 
